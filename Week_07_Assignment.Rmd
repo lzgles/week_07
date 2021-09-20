@@ -1,0 +1,99 @@
+---
+title: "Week 07 Assignment"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This assignment is due by 6 pm on the evening of the 8th class. It should be submitted via Github.
+
+#### Textbook
+-   [Chapter 21 - Iteration](https://r4ds.had.co.nz/iteration.html)
+
+#### Exercises
+
+```{r}
+if(! require("pacman")) install.packages("pacman")
+
+pacman::p_load(
+  tidyverse,
+  here,
+  rvest
+)
+```
+
+1. Create regular expressions to find all words that:
+
+- Start with a vowel.
+- That only contain consonants. (Hint: thinking about matching “not”-vowels.)
+- End with `ed`, but not with `eed.`
+- End with `ing` or `ise.`
+
+```{r}
+
+```
+
+
+2. Create a regular expression that will match telephone numbers as commonly written in the United States.
+
+```{r}
+
+```
+
+We'll be exploring Bob Ross's paintings.
+
+3. Load the CSV of all of his paintings.
+
+```{r}
+url <- "https://raw.githubusercontent.com/jwilber/Bob_Ross_Paintings/master/data/bob_ross_paintings.csv"
+
+
+```
+
+The following code will extract each episode and its air date from the [Joy of Painting Wikipedia page](https://en.wikipedia.org/wiki/The_Joy_of_Painting).
+
+```{r}
+jop_url <- "https://en.wikipedia.org/wiki/The_Joy_of_Painting"
+
+webpage <- read_html(jop_url)
+
+elements <- 
+  webpage %>% 
+  html_elements("li") %>% 
+  html_text2() 
+
+episode_list <- elements[str_detect(elements, "([A-Za-z]+ [0-9]{1,2}, [0-9]{4})")]
+```
+
+4. Convert `episode_list` into a dataframe such that it includes the following columns:
+
+- `episode`: the name of the episode. Make sure to remove any extra characters (like quotes) and trim whitespace
+- `air_date`: the air date of the episode as a date field
+- `note`: any additional note
+
+Name this dataframe `episode_list_df`.
+
+```{r}
+
+```
+
+5. Join the `paintings` dataframe to the `episode_list_df` dataframe.
+
+```{r}
+
+```
+
+6. What was Bob Ross's favorite color to paint with in each season of his show? By year?
+
+```{r}
+
+```
+
+7. What words are used most frequently in the titles of his paintings? Did this change over time?
+
+```{r}
+
+```
+
