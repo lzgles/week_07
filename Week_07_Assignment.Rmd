@@ -7,11 +7,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This assignment is due by 6 pm on the evening of the 8th class. It should be submitted via Github.
-
-#### Textbook
--   [Chapter 21 - Iteration](https://r4ds.had.co.nz/iteration.html)
-
 #### Exercises
 
 ```{r}
