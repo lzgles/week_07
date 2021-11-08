@@ -14,81 +14,79 @@ if(! require("pacman")) install.packages("pacman")
 
 pacman::p_load(
   tidyverse,
-  here,
-  rvest
+  here
 )
+
+source(here::here("hw_functions.R"))
 ```
 
-1. Create regular expressions to find all words that:
+1.  Describe some of the benefits of using functions.
 
-- Start with a vowel.
-- That only contain consonants. (Hint: thinking about matching “not”-vowels.)
-- End with `ed`, but not with `eed.`
-- End with `ing` or `ise.`
+
+
+2.  Practice turning the following code snippets into functions. Think about what each function does. What would you call it? How many arguments does it need? Can you rewrite it to be more expressive or less duplicative?
+
+```{r}
+mean(is.na(x))
+
+x / sum(x, na.rm = TRUE)
+
+sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)
+```
 
 ```{r}
 
 ```
 
 
-2. Create a regular expression that will match telephone numbers as commonly written in the United States.
+3.  Read the source code for each of the following three functions, puzzle out what they do, and then brainstorm better names.
+
+```{r}
+f1 <- function(string, prefix) {
+  substr(string, 1, nchar(prefix)) == prefix
+}
+f2 <- function(x) {
+  if (length(x) <= 1) return(NULL)
+  x[-length(x)]
+}
+f3 <- function(x, y) {
+  rep(y, length.out = length(x))
+}
+```
+
+
+
+4.  Implement a fizzbuzz function. It takes a single number as input. If the number is divisible by three, it returns "fizz". If it's divisible by five it returns "buzz". If it's divisible by three and five, it returns "fizzbuzz". Otherwise, it returns the number. Make sure you first write working code before you create the function.
 
 ```{r}
 
 ```
 
-We'll be exploring Bob Ross's paintings.
 
-3. Load the CSV of all of his paintings.
+We'll be working with national baby names data from the [Social Security Administration](https://www.ssa.gov/oact/babynames/limits.html)
 
-```{r}
-url <- "https://raw.githubusercontent.com/jwilber/Bob_Ross_Paintings/master/data/bob_ross_paintings.csv"
+5. The following code will create your data frame:
 
+```{r US names}
+files <- list.files(here::here("Data"), pattern = "\\.txt", full.names = T)
 
+names_df <- map_df(files, ~read_name(.))
 ```
 
-The following code will extract each episode and its air date from the [Joy of Painting Wikipedia page](https://en.wikipedia.org/wiki/The_Joy_of_Painting).
+Describe what the `read_name` function is doing.
 
-```{r}
-jop_url <- "https://en.wikipedia.org/wiki/The_Joy_of_Painting"
+6.  Create a function that allows a user to select a name (or names) and graph its trend over time.
 
-webpage <- read_html(jop_url)
-
-elements <- 
-  webpage %>% 
-  html_elements("li") %>% 
-  html_text2() 
-
-episode_list <- elements[str_detect(elements, "([A-Za-z]+ [0-9]{1,2}, [0-9]{4})")]
-```
-
-4. Convert `episode_list` into a dataframe such that it includes the following columns:
-
-- `episode`: the name of the episode. Make sure to remove any extra characters (like quotes) and trim whitespace
-- `air_date`: the air date of the episode as a date field
-- `note`: any additional note
-
-Name this dataframe `episode_list_df`.
+* If multiple names are selected, they should each be represented on the graph as a unique color.
+* The user should be able to select whether they want to graph based upon the `count` or the `rank` of the name.
+* The user should be able to indicate if they are interested in male names, female names, or either.
 
 ```{r}
 
 ```
 
-5. Join the `paintings` dataframe to the `episode_list_df` dataframe.
 
-```{r}
+7. Create a repository for your course project and share it with @rharrington31. Your project should include:
 
-```
-
-6. What was Bob Ross's favorite color to paint with in each season of his show? By year?
-
-```{r}
-
-```
-
-7. What words are used most frequently in the titles of his paintings? Did this change over time?
-
-```{r}
-
-```
-
+* A `README.md` file
+* A script (whether it is a script or a markdown file) that successfully ingests your data for your analysis.
