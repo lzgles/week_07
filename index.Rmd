@@ -1,0 +1,1026 @@
+---
+title: "Foundations of R"
+subtitle: "Week 7:<br> Creating Functions"  
+author: 
+  - "Ryan Harrington"
+date: 'November 8, 2021'
+output:
+  xaringan::moon_reader:
+    seal: false
+    css: 
+      - xaringan-themer.css
+      - custom.css
+    nature:
+      slideNumberFormat: "%current%/%total%"
+      highlightStyle: github
+      highlightLines: true
+      ratio: 16:9
+      countIncrementalSlides: true
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(
+  fig.width=9, fig.height=3.5, fig.retina=3,
+  out.width = "100%",
+  cache = FALSE,
+  echo = TRUE,
+  message = FALSE, 
+  warning = FALSE,
+  fig.show = TRUE,
+  hiline = TRUE,
+  eval = FALSE
+)
+```
+
+```{r libraries, eval = T, include=FALSE, warning=FALSE}
+if(! require(pacman)) install.packages("pacman")
+
+pacman::p_load(
+  tidyverse,
+  here,
+  xaringan,
+  xaringanExtra,
+  xaringanthemer,
+  emo,
+  janitor,
+  lubridate
+)
+```
+
+```{r xaringanExtra-search, eval=T, echo=FALSE}
+xaringanExtra::use_search(show_icon = TRUE)
+```
+
+```{r xaringanExtra-clipboard, eval=T, echo=FALSE}
+htmltools::tagList(
+  xaringanExtra::use_clipboard(
+    button_text = "<i class=\"fa fa-clipboard\"></i>",
+    success_text = "<i class=\"fa fa-check\" style=\"color: #90BE6D\"></i>",
+  ),
+  rmarkdown::html_dependency_font_awesome()
+)
+```
+
+```{r xaringan-tile-view, eval=T, echo=FALSE}
+xaringanExtra::use_tile_view()
+```
+
+```{r xaringanExtra-freezeframe, echo=FALSE}
+xaringanExtra::use_freezeframe()
+```
+
+
+```{r xaringan-themer, eval = T, include=FALSE, warning=FALSE}
+udel_blue <- "#006096"
+style_duo_accent(
+  primary_color = udel_blue,
+  secondary_color = udel_blue,
+  inverse_header_color = "#FFFFFF"
+)
+```
+
+class: animated, fadeIn, content-slide
+layout: true
+
+---
+
+class: title-slide, middle
+layout: false
+
+# Foundations of R for Data Analysis
+
+### Week 07: Creating Functions
+
+Ryan Harrington<br>
+November 8, 2021<br>
+University of Delaware<br>
+College of Professional & Continuing Studies
+
+---
+
+class: content-slide
+
+# Questions We'll Answer Today
+
+### `r emo::ji("mask")` What are some COVID trends across US counties?<br>
+### `r emo::ji("factory")` What are functions and when do I use them?<br>
+### `r emo::ji("bug")` How do I debug functions?<br>
+### `r emo::ji("mag")` How can I utilize non-standard evaluation?<br>
+
+Create a new repository on GitHub and your local machine for your work from today's lesson.
+
+---
+
+class: content-slide
+
+# Review of Week 5 Assignment
+
+---
+
+class: content-slide
+
+# COVID Cases
+
+We'll be exploring [COVID-19 case and death data](https://github.com/CSSEGISandData/COVID-19/). This data is maintained by the [Center for Systems Science and Engineering (CSSE)](https://systems.jhu.edu/) at Johns Hopkins University.
+
+.center[<a href="https://coronavirus.jhu.edu/map.html"><img src="images/hopkins_dashboard.png" alt="Johns Hopkins Dashboard" style="width:600px"></a>]
+
+---
+
+class: content-slide
+
+# Read data
+
+We read in the raw data from the GitHub repository. Note that we add in a column to each dataset indicating its "type". Otherwise, we would not be able to tell directly from the data what dataset we were working with.
+
+```{r, eval=T}
+# Link for confirmed cases
+confirmed <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv"
+
+# Link for confirmed deaths
+deaths <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv"
+```
+
+```{r, eval=T}
+deaths_df <-
+  read_csv(deaths) %>%
+  mutate(Type = "Deaths")
+```
+
+```{r, eval=T}
+confirmed_df <- 
+  read_csv(confirmed) %>% 
+  mutate(Type = "Confirmed")
+```
+
+---
+
+class: content-slide
+
+# Transform data
+
+Notice that the two datasets have the same fields *except* for one major difference. The `confirmed_df` dataframe does not have a `Population` field while the `deaths_df` does.
+
+To add `Population` into the `confirmed_df` dataframe, we can separate it from the `deaths_df` dataframe and then join it back to `confirmed_df`.
+
+```{r, eval=T}
+population_df <-
+  deaths_df %>%
+  select(UID, iso2, iso3, code3, FIPS, Admin2, Province_State, Country_Region,
+         Lat, Long_, Combined_Key, Population)
+```
+
+---
+
+class: content-slide
+
+# Transform data
+
+We can join `population_df` to `confirmed_df`. Note that there are many fields that are the same between the two dataframes. We add each of these as a key in our `left_join`.
+
+```{r, eval=T}
+# Read and transform cases
+confirmed_df <-
+  confirmed_df %>%
+  left_join(population_df, 
+            by = c("UID", "iso2", "iso3", "code3", "FIPS", #<<
+                   "Admin2", "Province_State", "Country_Region", #<<
+                   "Lat", "Long_", "Combined_Key")) %>% #<<
+  select(UID, iso2, iso3, code3, FIPS, Admin2, Province_State, Country_Region,
+         Lat, Long_, Combined_Key, Population, everything())
+```
+
+---
+
+class: content-slide
+
+# Transform data
+
+Now that `confirmed_df` and `deaths_df` have the same columns, we `union` them together and reorganize them into a convenient order to work with.
+
+```{r, eval=T}
+covid <- 
+  union(confirmed_df, deaths_df) %>% #<<
+  select(UID, iso2, iso3, code3, FIPS, Admin2, Province_State, Country_Region,
+         Lat, Long_, Combined_Key, Type, Population, everything())
+
+```
+
+---
+
+class: content-slide
+
+# Check County Data
+
+We might want to start by checking individual counties in the dataset. Delaware counties would be a great place to start:
+
+.pull-left[
+```{r}
+## New Castle
+covid %>% 
+  filter(Admin2 %in% "New Castle",
+         Province_State %in% "Delaware")
+```
+
+```{r}
+# Kent
+covid %>% 
+  filter(Admin2 %in% "Kent",
+         Province_State %in% "Delaware")
+```
+]
+.pull-right[
+```{r}
+# Sussex
+covid %>% 
+  filter(Admin2 %in% "Sussex",
+         Province_State %in% "Delaware")
+```
+
+```{r}
+# All Delaware
+covid %>% 
+  filter(Province_State %in% "Delaware")
+```
+]
+
+Note that we had to utilize the same operation multiple times. This is an excellent opportunity to utilize **functions**.
+
+---
+
+class: content-slide
+
+# Functions
+
+We've used functions constantly throughout this course, but they have always been created by someone else. We can also write our own functions.
+
+A great rule of thumb for when to write a function is that once you have written the same code three times, you should consider writing a function.
+
+Functions offer several key benefits:
+
+* They make your code more repeatable, particularly for complex operations
+* They offer another way to write "clean code" that is easier for others to understand
+* They lend themselves towards the ability to test code to ensure it functions properly
+
+---
+
+class: content-slide
+
+# Elements of a Function
+
+We designate a function in R in the following way:
+
+```{r}
+function_name <- function(arg_01, arg_02, ...) {
+  
+  body_of_function
+  
+  return(something)
+  
+}
+```
+
+We explicitly define a function by using the `function` function.
+
+Every function includes a name. It is very common for those names to be verbs.
+
+Inside of `function`, you list each of your arguments in the order that you want them to be listed. The arguments are also called the "formals" of the function.
+
+After this, you designate what you want to happen in the "body" of the function. As part of the body, you include a `return` statement. Note that in our example, the body occurs inside of `{}`.
+
+---
+
+class: content-slide
+
+# Building a simple function
+
+Let's create a toy function that always returns today's date as part of a sentence.
+
+We don't *have* to include arguments in our function. In this case, we don't need one. Our function is very simple.
+
+We have no arguments in the function and our body is very simple for right now. It simply returns "Hello!".
+
+```{r}
+tell_me_todays_date <- function() {
+  
+  return("Hello!")
+  
+}
+```
+
+Run this a few times and you'll notice that it always returns "Hello!", just as we'd expect.
+
+---
+
+class: content-slide
+
+# Building a simple function
+
+Clearly our `tell_me_todays_date` function isn't actually telling anyone the date. Let's do that next.
+
+We'll use the `Sys.Date` function to get today's date. Alternatively, we could also use `lubridate::today` to accomplish the same thing. We'll want to format it nicely as well!
+
+```{r}
+tell_me_todays_date <- function() {
+  
+  todays_date <- format(Sys.Date(), format = "%B %d, %Y")
+  
+  sentence <- paste("Hello! Today's date is", todays_date, ".")
+  
+  return(sentence)
+  
+}
+```
+
+
+```{r}
+tell_me_todays_date()
+```
+
+---
+
+class: content-slide
+
+# Using arguments
+
+Suppose that we want to create a function that calculates the distance of every element in a vector from the mean of that vector. First, let's create this without utilizing a function.
+
+```{r}
+set.seed(1231)
+nums <- sample(1:100, 25, replace = T)
+
+nums - mean(nums, na.rm = T)
+```
+
+Once you've done this, you can use it to create your function. Notice that we want to input a different set of `values` each time. We can do this by setting an argument name inside of `function`.
+
+```{r}
+calc_mean_dist <- function(values) {
+  
+  dist <- values - mean(values, na.rm = T)
+  
+  return(dist)
+  
+}
+```
+
+---
+
+class: content-slide
+
+# Applying this to COVID data
+
+Recall that we were looking for a way to get county data. Let's create a function called `get_county` that will do this for us. We can build off of this example.
+
+```{r}
+## New Castle
+covid %>% 
+  filter(Admin2 %in% "New Castle",
+         Province_State %in% "Delaware")
+```
+
+This time we require multiple arguments. A great rule of thumb is to order the arguments based upon what is most needed. We always need a dataframe to perform this task, so the `df` argument goes first.
+
+```{r}
+get_county <- function(df,
+                       County) {
+  
+  data <- 
+    df %>% 
+    filter(Admin2 %in% County)
+  
+  return(data)
+  
+}
+```
+
+Try this function out with Delaware's three counties. What issue do we run into?
+
+---
+
+class: content-slide
+
+# Multiple arguments
+
+As it turns out, we also will want to designate the `Province_State` so that we end up with a unique answer. Let's improve our function to allow this.
+
+```{r}
+get_county <- function(df,
+                       County,
+                       State) {
+  
+  data <- 
+    df %>% 
+    filter(Admin2 %in% County,
+           Province_State %in% State)
+  
+  return(data)
+  
+}
+```
+
+---
+
+class: content-slide
+
+# Argument default values
+
+This is better, but we still have to type in all of our values each time. It would be valuable if we had default values to work from. We can do this by simply setting the value when we define the arguments.
+
+```{r}
+get_county <- function(df,
+                       County = "New Castle",
+                       State = "Delaware") {
+  
+  data <- 
+    df %>% 
+    filter(Admin2 %in% County,
+           Province_State %in% State)
+  
+  return(data)
+  
+}
+```
+
+---
+
+class: content-slide
+
+# Conditional execution
+
+What about our last example?
+
+```{r}
+# All Delaware
+covid %>% 
+  filter(Province_State %in% "Delaware")
+```
+
+Can we make our function abstract enough to handle this logic as well? This returns all values for Delaware.
+
+In order to do this, we need to introduce the concept of conditional execution with the `if` statement. This is a "control flow" mechanism that allows you to use logic to perform tasks.
+
+It can be paired with `else` to provide an option for how to proceed if the condition is not `TRUE`. This is not required, though.
+
+---
+
+class: content-slide
+
+# Conditional execution
+
+Syntactically, this looks like:
+
+```{r}
+if (condition) {
+  
+  # code executed when condition is TRUE
+  
+} else {
+  
+  # code executed when condition is FALSE
+  
+}
+```
+
+---
+
+class: content-slide
+
+# Conditional execution
+
+Let's adjust our code so that it will return every county for a state if the `County` field is changed to `"All counties"`.
+
+```{r}
+get_county <- function(df,
+                       County = "New Castle",
+                       State = "Delaware") {
+  
+  if (County == "All counties") {
+    data <- 
+      df %>% 
+      filter(Province_State %in% State)
+  } else {
+    data <- 
+      df %>% 
+      filter(Admin2 %in% County,
+             Province_State %in% State)
+  }
+  return(data)
+}
+```
+
+---
+
+class: content-slide
+
+# Function environments
+
+Take a look at your environment pane. Recall that your environment pane indicates every object in your environment. However, we created a few intermediate objects while working with our functions, such as `data` in the `get_county` function. You'll notice that these *are not* included in your environment pane.
+
+This is a fundamental aspect of functions.
+
+When we are typically working with R, we are working with the "global environment". We can access all of the objects in the global environment whenever we'd like to.
+
+When we are working with functions in R, the intermediate objects are only written to the "function environment" and only live there for as long as we are working with that particular instance of the function.
+
+
+---
+
+class: content-slide
+
+# Return statements
+
+Each time we've worked with a function, we've used `return` to access the output of the function. There are a few rules for `return` that are worth knowing.
+
+The first is that **you don't always need a `return` statement**. We have been taking advantage of explicit `return` values. However, R can also do this implicitly. It will return whatever your last statement is. First, consider this function:
+
+```{r}
+tell_me_todays_date <- function() {
+  todays_date <- format(Sys.Date(), format = "%B %d, %Y")
+  sentence <- paste("Hello! Today's date is", todays_date, ".")
+  return(sentence)
+}
+```
+
+We are being *explicit* about our `return` statement, but can be *implicit* instead. It can be rewritten to:
+
+```{r}
+tell_me_todays_date <- function() {
+  todays_date <- format(Sys.Date(), format = "%B %d, %Y")
+  paste("Hello! Today's date is", todays_date, ".")
+}
+```
+
+---
+
+class: content-slide
+
+# Return statements
+
+Now consider our `get_county` function:
+
+.pull-left[
+**This will work:**
+```{r}
+get_county <- function(df,
+                       County = "New Castle",
+                       State = "Delaware") {
+  if (County == "All counties") {
+    df %>%
+      filter(Province_State %in% State)
+  } else {
+    df %>%
+      filter(Admin2 %in% County,
+             Province_State %in% State)
+  }
+}
+```
+]
+.pull-right[
+**This won't work:**
+```{r}
+get_county <- function(df,
+                       County = "New Castle",
+                       State = "Delaware") {
+  if (County == "All counties") {
+    data <- df %>%
+      filter(Province_State %in% State)
+  } else {
+    data <- df %>%
+      filter(Admin2 %in% County,
+             Province_State %in% State)
+  }
+}
+```
+]
+
+---
+
+class: content-slide
+
+# Return statements
+
+Now consider our `get_county` function:
+
+.pull-left[
+```{r}
+# This will work
+get_county <- function(df,
+                       County = "New Castle",
+                       State = "Delaware") {
+  if (County == "All counties") {
+    df %>% #<<
+      filter(Province_State %in% State)
+  } else {
+    df %>% #<<
+      filter(Admin2 %in% County,
+             Province_State %in% State)
+  }
+}
+```
+]
+.pull-right[
+```{r}
+# This won't work
+get_county <- function(df,
+                       County = "New Castle",
+                       State = "Delaware") {
+  if (County == "All counties") {
+    data <- df %>% #<<
+      filter(Province_State %in% State)
+  } else {
+    data <- df %>% #<<
+      filter(Admin2 %in% County,
+             Province_State %in% State)
+  }
+}
+```
+]
+
+---
+
+class: content-slide
+
+# Continue with Data Cleaning
+
+If we want to create a graph of our data in a wide format, it would be challenging to do so. A long format would be much better for these purposes.
+
+To make things easier for ourselves, we'll practice with Delaware data first and then make it abstract afterwards.
+
+```{r}
+covid %>% 
+  filter(Province_State %in% "Delaware") %>% 
+  # Turn date fields long
+  pivot_longer(cols = matches("^[0-9]+\\/[0-9]+\\/[0-9]+"),
+               names_to = "Date",
+               values_to = "Count") %>% 
+  # Widen based upon type
+  pivot_wider(names_from = Type,
+              values_from = Count) %>% 
+  # Force Date field to be type Date
+  mutate(Date = as.Date(Date, format = "%m/%d/%y")) %>% 
+  # Move population to the end of the data frame
+  select(-Population, everything(), Population)
+```
+
+---
+
+class: content-slide
+
+# Continue with Data Cleaning
+
+Let's practice transforming this into a function:
+
+```{r}
+tidy_covid <- function(df){
+  df %>% 
+    
+    # Turn date fields long
+    pivot_longer(cols = matches("^[0-9]+\\/[0-9]+\\/[0-9]+"),
+                 names_to = "Date",
+                 values_to = "Count") %>% 
+    
+    # Widen based upon type
+    pivot_wider(names_from = Type,
+                values_from = Count) %>% 
+    
+    # Force Date field to be type Date
+    mutate(Date = as.Date(Date, format = "%m/%d/%y")) %>% 
+    
+    # Move population to the end of the data frame
+    select(-Population, everything(), Population)
+}
+
+```
+
+---
+
+class: content-slide
+
+# Putting it all together
+
+Let's look back at some of the initial counties that we were looking at. If we hadn't created functions, it would take quite a bit of repetitive code in order to make this work. Instead, our code is represented in a concise manner. If we want to make a change, we just have to do it once and then it is propogated to all of the other instances that we use our function.
+
+.pull-left[
+```{r}
+covid %>% 
+  get_county("New Castle") %>% 
+  tidy_covid()
+```
+
+```{r}
+covid %>% 
+  get_county("Kent") %>% 
+  tidy_covid()
+```
+
+```{r}
+covid %>% 
+  get_county("Sussex") %>% 
+  tidy_covid()
+```
+]
+.pull-right[
+```{r}
+covid %>% 
+  get_county("All counties") %>% 
+  tidy_covid()
+```
+
+```{r}
+covid %>% 
+  get_county("Monmouth", "New Jersey") %>% 
+  tidy_covid()
+```
+
+```{r}
+covid %>% 
+  get_county("Clark", "Nevada") %>% 
+  tidy_covid()
+```
+]
+
+---
+
+class: content-slide
+
+# Add in normalized values
+
+Adjust the `tidy_covid` function so that it includes two additional columns:
+
+1. `Confirmed_norm` which is equal to `Confirmed / Population`
+2. `Deaths_norm` which is equal to `Deaths / Population`
+
+---
+
+class: content-slide
+
+# Debugging your code
+
+As your functions become more complex, you'll find yourself in positions where you'll want to debug them. There are a few great ways to debug your code:
+
+* `traceback` allows you to walk backwards through your code to see where an error occurred.
+* `debug` (or `debugonce`) allows you to step through the function line by line while it is being executed. You can end `debug` with `undebug`
+* `browser` allows you to set a place within your function to stop execution at which point it is similar to `debug`
+
+---
+
+class: content-slide
+
+# Debugging your code
+
+Start by calling `debug` and naming the function you want to explore:
+
+```{r}
+debug(tidy_covid)
+```
+
+Then run code that will trigger the function.
+
+```{r}
+covid %>% 
+  get_county() %>% 
+  tidy_covid()
+```
+
+A new window will appear that allows you to manipulate the function's environment and step through it line-by-line. You can close out of it by typing `Q` into the console.
+
+Finally, `undebug` the function when you're done.
+
+```{r}
+undebug(tidy_covid)
+```
+
+
+---
+
+class: content-slide
+
+# Managing and documenting your functions
+
+Instead of scattering your code with functions, it is a better practice to create a separate file that includes all of your functions in a single place. This will make it easier to find and adjust your functions in the future.
+
+I often create a file called `functions.R` in either the root of my repository or in a folder called `Scripts`.
+
+The `functions.R` file is then sourced into the file that I'm working with:
+
+```{r}
+source("functions.R")
+
+# OR
+
+source(here::here("Scripts", "functions.R"))
+```
+
+The `functions.R` file will be sourced at the beginning of the script or markdown document that I'm working with in the same place as my library calls. Sometimes I will also move all of the library calls into the same script as my `functions.R` script.
+
+As your work becomes more advanced, you may also consider creating your own package that includes your functions.
+
+---
+
+class: content-slide
+
+# Adjusting from cumulative to daily values
+
+Note that the `Confirmed` and `Deaths` fields are cumulative. They always increase. Perhaps we would like to understand day-over-day changes instead.
+
+We can utilize a `lag` function to do this.
+
+```{r}
+covid %>% 
+  get_county("Clark", "Nevada") %>% 
+  tidy_covid() %>% 
+  mutate(Confirmed_DoD = Confirmed - lag(Confirmed, default = 0))
+```
+
+Create a function that will allow us to get the lagged difference.
+
+```{r}
+lag_diff <- function(field) {
+  field - lag(field, default = 0)
+}
+```
+
+---
+
+class: content-slide
+
+# Understanding the ...
+
+Perhaps we don't want to always use the `default = 0` argument for the `lag` function. In fact, we might want to adjust which of the arguments we use in the `lag` function based upon the use case that we have.
+
+There are two options to solve this problem:
+
+1. We could explicitly make an argument in our function for each of the arguments in `lag`
+2. We can pass on arguments from our function to the `lag` function by utilizing `...`
+
+The `...` allows your function to take an arbitrary number of inputs. Most of the `tidyverse` functions utilize `...` in some capacity. It also allows us to carry forward additional arguments that we haven't explicitly listed in our function.
+
+We can update the `lag_diff` function to utilize this feature:
+
+```{r}
+lag_diff <- function(field, ...) {
+  field - lag(field, ...)
+}
+```
+
+Now add this to your `tidy_covid` function.
+
+---
+
+class: content-slide
+
+# Graphing our data
+
+Let's now create a graph that represents changes in COVID over time. We'll start by looking at `Confirmed` cases.
+
+```{r}
+covid %>% 
+  get_county("All counties") %>% 
+  tidy_covid() %>%
+  ggplot(aes(x = Date,
+             y = Confirmed, #<<
+             color = Admin2,
+             group = Admin2)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::comma) +
+  theme_minimal() +
+  theme(legend.position = "top",
+        axis.title = element_text(face = "bold"),
+        axis.text = element_text(face = "italic")) +
+  labs(color = "")
+```
+
+---
+
+class: content-slide
+
+# Graphing our data
+
+Right now, it would be trivial for us to adjust this to look at `Deaths` instead:
+
+```{r}
+covid %>% 
+  get_county("All counties") %>% 
+  tidy_covid() %>%
+  ggplot(aes(x = Date,
+             y = Deaths, #<<
+             color = Admin2,
+             group = Admin2)) +
+  geom_line() +
+  scale_y_continuous(labels = scales::comma) +
+  theme_minimal() +
+  theme(legend.position = "top",
+        axis.title = element_text(face = "bold"),
+        axis.text = element_text(face = "italic")) +
+  labs(color = "")
+```
+
+---
+
+class: content-slide
+
+# Graphing our data
+
+Let's adjust this in order to create a function called `graph_covid`.
+
+```{r}
+graph_covid <- function(df,
+                        field = Confirmed){
+  df %>% 
+    ggplot(aes(x = Date,
+               y = field, #<<
+               color = Admin2,
+               group = Admin2)) +
+    geom_line() +
+    scale_y_continuous(labels = scales::comma) +
+    theme_minimal() +
+    theme(legend.position = "top",
+          axis.title = element_text(face = "bold"),
+          axis.text = element_text(face = "italic")) +
+    labs(color = "")
+}
+```
+
+---
+
+class: content-slide
+
+# Non-standard evaluation
+
+Notice that `ggplot2` can't seem to find an object called `Confirmed`.
+
+```{r}
+covid %>% 
+  get_county("All counties") %>% 
+  tidy_covid() %>%
+  graph_covid()
+```
+
+Many functions in R, particularly within the tidyverse, take advantage of non-standard evaluation. This is what allows you to name a field in your data frame without referencing the data frame that you're working with. It's a very useful paradigm that is part of what makes R unique. This is present in other languages, but used much more extensively in R.
+
+We need to help R recognize when we're going to utilize non-standard evaluation by utilizing an **embrace**. That means wrapping our variable in a `{{ }}`.
+
+---
+
+class: content-slide
+
+# Non-standard evaluation
+
+We can adjust our function in the following way to make it work:
+
+```{r}
+graph_covid <- function(df,
+                        field = Confirmed){
+  df %>% 
+    ggplot(aes(x = Date,
+               y = {{field}}, #<<
+               color = Admin2,
+               group = Admin2)) +
+    geom_line() +
+    scale_y_continuous(labels = scales::comma) +
+    theme_minimal() +
+    theme(legend.position = "top",
+          axis.title = element_text(face = "bold"),
+          axis.text = element_text(face = "italic")) +
+    labs(color = "")
+}
+```
+
+---
+
+class: content-slide
+
+# Improving the graph
+
+Can we improve our `graph_covid` function such that it:
+
+1. Creates a different graph based upon if there is one or more than one counties selected? The graph with more than one county selected should include a legend while the graph with only one county selected should not.
+
+2. Allows the end user to graph the data with a transformation on the y-axis.
+
+---
+
+class: content-slide
+
+# For next week
+
+Complete your assignment by 5:59 pm submitted via GitHub.
+
+#### Textbook
+-   [Chapter 21 - Iteration](https://r4ds.had.co.nz/iteration.html)
+
+---
+
+class: title-slide, middle
+layout: false
+
+# Foundations of R for Data Analysis
+
+### Week 07: Creating Functions
+
+Ryan Harrington<br>
+November 8, 2021<br>
+University of Delaware<br>
+College of Professional & Continuing Studies
