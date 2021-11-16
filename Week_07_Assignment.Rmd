@@ -22,16 +22,32 @@ source(here::here("hw_functions.R"))
 
 1.  Describe some of the benefits of using functions.
 
-
+Using a function can help you avoid having to write the same code over and over if you need to run the same thing multiple times. This minimizes the potential for typos and other mistakes. If there are mistakes or problems, they can be more easily identified because functions have options for debugging. They can also be generalized so that the same function will work with different data sets rather than a single, specific data set.  
 
 2.  Practice turning the following code snippets into functions. Think about what each function does. What would you call it? How many arguments does it need? Can you rewrite it to be more expressive or less duplicative?
 
 ```{r}
-mean(is.na(x))
 
+
+percent_NAs <- function(x){
+
+  mean(is.na(x))
+
+} 
+
+normalize_by_total <- function(x){
+  
 x / sum(x, na.rm = TRUE)
 
+}
+
+coeff_variation <- function(x){
+  
 sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)
+  
+}
+
+
 ```
 
 ```{r}
@@ -42,14 +58,17 @@ sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)
 3.  Read the source code for each of the following three functions, puzzle out what they do, and then brainstorm better names.
 
 ```{r}
-f1 <- function(string, prefix) {
+start_with <- function(string, prefix) {
   substr(string, 1, nchar(prefix)) == prefix
 }
-f2 <- function(x) {
+
+remove_last <- function(x) {
   if (length(x) <= 1) return(NULL)
   x[-length(x)]
 }
-f3 <- function(x, y) {
+
+
+repeat_x_times <- function(x, y) {
   rep(y, length.out = length(x))
 }
 ```
@@ -59,6 +78,40 @@ f3 <- function(x, y) {
 4.  Implement a fizzbuzz function. It takes a single number as input. If the number is divisible by three, it returns "fizz". If it's divisible by five it returns "buzz". If it's divisible by three and five, it returns "fizzbuzz". Otherwise, it returns the number. Make sure you first write working code before you create the function.
 
 ```{r}
+
+test <- 12
+test %% 3 == 0 && test %% 5 == 0
+test %% 3 == 0
+test %% 5 == 0
+
+
+
+fizzbuzz <- function(x) {
+  
+  if (x %% 3 == 0 && x %% 5 == 0) {
+    
+    print("fizzbuzz")
+    
+  } else if (x %% 3 == 0) {
+    
+    print("fizz")
+    
+  } else if (x %% 5 == 0) {
+    
+    print("buzz")
+    
+  } else if (x %% 3 != 0 && x %% 5 != 0) {
+    
+    print(x)
+  
+  }}
+
+fizzbuzz(15)
+fizzbuzz(12)
+fizzbuzz(25)
+fizzbuzz(30)
+fizzbuzz(13)
+
 
 ```
 
@@ -75,6 +128,16 @@ names_df <- map_df(files, ~read_name(.))
 
 Describe what the `read_name` function is doing.
 
+The data set is made up of individual text files for each year, which are 
+separated into name, gender, and count. The read_name function takes the path
+to those files as an argument. Then it extracts the year from the file name and 
+makes a column of those years. It reads in the rest of the file, and makes a 
+character type column of names, a factor type column of genders, and an integer
+type file of counts. It formats the year column into a date, and sets the exact 
+date to Jan 1st of each year. For each gender within each year, it sorts the names 
+into most-to-least common, then gives them a rank with the most common name 
+ranked as 1. Then it outputs the data frame. 
+
 6.  Create a function that allows a user to select a name (or names) and graph its trend over time.
 
 * If multiple names are selected, they should each be represented on the graph as a unique color.
@@ -82,6 +145,39 @@ Describe what the `read_name` function is doing.
 * The user should be able to indicate if they are interested in male names, female names, or either.
 
 ```{r}
+
+name_popularity_over_time <- function(df, 
+                                      names_to_graph,
+                                      gender_to_graph,
+                                      graph_by) {
+  
+  df %>%
+    filter(name == names_to_graph, 
+           gender == gender_to_graph) %>%
+    ggplot(aes(x = year,
+               y = {{graph_by}},
+               color = name,
+               fill = gender)) +
+    geom_line() +
+      scale_y_continuous(labels = scales::comma) +
+      theme(legend.position = "top",
+            axis.title = element_text(face = "bold"),
+            axis.text = element_text(face = "italic")) +
+      labs(color = "")
+  
+}
+
+
+
+name_popularity_over_time(names_df, "Mary", "F", count)
+name_popularity_over_time(names_df, "John", "M", rank)
+name_popularity_over_time(names_df, c("Anna", "Emma"), "F", rank)
+name_popularity_over_time(names_df, c("John", "William"), "M", count)
+name_popularity_over_time(names_df, c("Anna", "Emma", "John", "William"), c("F", "F", "M", "M"), count)
+name_popularity_over_time(names_df, "Shannon", c("M", "F"), count)
+name_popularity_over_time(names_df, c("Casey", "Shannon"), c("M", "M", "F", "F"), count)
+
+
 
 ```
 
