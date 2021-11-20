@@ -1,0 +1,275 @@
+---
+title: "Week 06 Assignment"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Textbook
+
+-   Chapter 19 - Functions
+
+#### Exercises
+
+```{r}
+if(! require("pacman")) install.packages("pacman")
+
+pacman::p_load(
+  tidyverse,
+  here,
+  ggtext
+)
+
+theme_set(theme_minimal())
+```
+
+1.  Describe some of the benefits of using functions.
+
+2.  Practice turning the following code snippets into functions. Think about what each function does. What would you call it? How many arguments does it need? Can you rewrite it to be more expressive or less duplicative?
+
+```{r}
+mean(is.na(x))
+
+x / sum(x, na.rm = TRUE)
+
+sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)
+```
+
+```{r}
+percent_na <- function(x) {
+  
+  mean(is.na(x))
+  
+}
+
+percent_na(c(1, 2, 3, 4, NA))
+```
+
+```{r}
+percent_total <- function(x) {
+  
+  x / sum(x, na.rm = TRUE)
+  
+}
+
+percent_total(c(1, 2, 3, 4, NA))
+```
+
+```{r}
+coef_var <- function(x) {
+  
+  sd(x, na.rm = TRUE) / mean(x, na.rm = TRUE)
+  
+}
+
+coef_var(c(1, 2, 3, 4, NA))
+```
+
+
+3.  Read the source code for each of the following three functions, puzzle out what they do, and then brainstorm better names.
+
+```{r}
+test_prefix <- function(string, prefix) {
+  substr(string, 1, nchar(prefix)) == prefix
+}
+
+test_prefix("convention", "con")
+test_prefix("contest", "con")
+test_prefix("ryan", "test")
+```
+
+
+```{r}
+remove_last <- function(x) {
+  if (length(x) <= 1) return(NULL)
+  x[-length(x)]
+}
+
+remove_last(c(1, 2, 3, 4, 5, 9, 10))
+remove_last(c(3, 1, 4, 1, 5, 9, 2))
+remove_last(c(8, 6, 7, 5, 3, 0 , 9))
+```
+
+
+```{r}
+expand <- function(x, y) {
+  rep(y, length.out = length(x))
+}
+
+expand(1:3, 4)
+expand(seq(2, 80, 2), 6)
+```
+
+4.  Implement a fizzbuzz function. It takes a single number as input. If the number is divisible by three, it returns "fizz". If it's divisible by five it returns "buzz". If it's divisible by three and five, it returns "fizzbuzz". Otherwise, it returns the number. Make sure you first write working code before you create the function.
+
+```{r}
+fizzbuzz <- function(x) {
+
+  if (!(x %% 3) && !(x %% 5)) {
+    
+    "fizzbuzz"
+    
+  } else if (!(x %% 3)) {
+    
+    "fizz"
+    
+  } else if (!(x %% 5)) {
+    
+    "buzz"
+    
+  } else {
+    
+    # return a character vector
+    as.character(x)
+    
+  }
+  
+}
+
+fizzbuzz(12)
+fizzbuzz(20)
+fizzbuzz(30)
+fizzbuzz(1)
+```
+
+
+We'll be working with national baby names data from the [Social Security Administration](https://www.ssa.gov/oact/babynames/limits.html)
+
+5. The following code will create your data frame:
+
+```{r US names}
+source("hw_functions.R")
+
+files <- list.files(here::here("Data"), pattern = "\\.txt", full.names = T)
+
+names_df <- map_df(files, ~read_name(.))
+```
+
+Describe what the `read_name` function is doing.
+
+The `read_name` function performs the following tasks:
+
+* Accepts the name of the file
+* Reads the file name and extracts the year from it
+* Reads in the data from the provided file path while setting column types
+* Creates a year field
+* Adds in the rank of each name by year and gender
+* Arranges the names by year and gender
+
+6.  Create a function that allows a user to select a name (or names) and graph its trend over time.
+
+* If multiple names are selected, they should each be represented on the graph as a unique color.
+* The user should be able to select whether they want to graph based upon the `count` or the `rank` of the name.
+* The user should be able to indicate if they are interested in male names, female names, or either.
+
+```{r}
+
+plot_names <- function(df, 
+                       selected_names,
+                       selected_gender = "F",
+                       start_year = "1990-01-01",
+                       end_year = "2019-01-01",
+                       start_rank = 250,
+                       end_rank = 1,
+                       start_count = 1000,
+                       num_columns = 5,
+                       field = "rank") {
+  
+  ### Makes formatting of the facets possible later on
+  ### This is not necessary to make this funciton work
+  
+  us_text <- "<b>{name}</b><br><i>Rank: {scales::comma(rank_max, accuracy = 1)}<br>Count: {scales::comma(count_max, accuracy = 1)}</i>"
+  
+  names_data <- 
+    df %>% 
+    dplyr::filter(name %in% selected_names,
+                  gender == selected_gender) %>% 
+    dplyr::mutate(rank_max = 
+                    dplyr::if_else(year == base::max(year), 
+                                   rank, 
+                                   NA_integer_),
+                  count_max = 
+                    dplyr::if_else(year == base::max(year), 
+                                   count, 
+                                   NA_integer_)) %>% 
+    
+    dplyr::group_by(name) %>% 
+    tidyr::fill(rank_max, count_max,
+                .direction = "up") %>% 
+    dplyr::ungroup() %>% 
+    
+    dplyr::mutate(facet_text = glue::glue(us_text),
+      facet_text = forcats::fct_reorder(facet_text, rank_max))
+  
+  ### Initialize the plot with common elements for rank and count
+  plot <-
+    names_data %>% 
+    
+    ggplot2::ggplot(ggplot2::aes(x = year,
+                                 color = name)) +
+    ggplot2::scale_x_date(date_labels = "'%y") +
+    ggplot2::facet_wrap(~ facet_text, ncol = num_columns) +
+    ggplot2::labs(x = "",
+                  y = "") +
+    ggplot2::theme(plot.title = ggtext::element_markdown(),
+                   plot.title.position = "plot",
+                   strip.text = ggtext::element_markdown(),
+                   panel.spacing = ggplot2::unit(1.25, "lines"))
+  
+  ### Based upon what the end user selects, the function will either complete 
+  ### the plot based upon "rank" or "count"
+  
+  ### You could also do this with {{ }}
+  
+  if (field == "rank") {
+    
+    plot +
+      ggplot2::geom_line(aes(y = rank),
+                         show.legend = F) +
+      
+      ggplot2::scale_y_reverse(labels = scales::comma) +
+      
+      ggplot2::coord_cartesian(xlim = c(as.Date(start_year), as.Date(end_year)),
+                               ylim = c(start_rank, end_rank)) +
+      ggplot2::labs(title = "US Name Rank by Year")
+    
+  } else if (field == "count") {
+    
+    plot +
+      ggplot2::geom_line(aes(y = count),
+                         show.legend = F) +
+      
+      ggplot2::scale_y_reverse(labels = scales::comma) +
+      
+      ggplot2::coord_cartesian(xlim = c(as.Date(start_year), as.Date(end_year)),
+                               ylim = c(start_count, max(names_data$count))) +
+      ggplot2::labs(title = "US Name Count by Year")
+    
+  } else {
+    
+    stop()
+    
+  }
+  
+}
+
+
+```
+
+
+```{r}
+names_df %>% 
+  plot_names(c("Clara", "Violet", "Felicia", "Sharon", "Sally"),
+             start_year = "1900-01-01",
+             end_year = "2019-01-01",
+             start_rank = 1000,
+             field = "rank")
+```
+
+
+7. Create a repository for your course project and share it with @rharrington31. Your project should include:
+
+* A `README.md` file
+* A script (whether it is a script or a markdown file) that successfully ingests your data for your analysis.
